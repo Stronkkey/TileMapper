@@ -92,11 +92,6 @@ func _draw_tile(cell_data: MapperCellData) -> void:
 		RenderingServer.canvas_item_set_material(cell_data.canvas_rid, cell_data.tile_data.material.get_rid())
 
 
-func _draw_cell_collision_shape(cell_data: MapperCellData) -> void:
-	for body in cell_data.physics_bodies_rid:
-		RenderingServer.canvas_item_add_rect(cell_data.canvas_rid, Rect2(cell_data.transform.origin, Vector2.ONE * 16), Color.WHITE)
-
-
 func _get_texture_region_from_cell_data(cell_data: MapperCellData) -> Rect2i:
 	return _get_texture_region_from_atlas_source(cell_data.source_id, cell_data.atlas_coords)
 
@@ -140,12 +135,14 @@ func _for_cell_body_polygon_point(cell_data: MapperCellData, layer: int, polgyon
 
 
 func _for_cell_body_physics_layer(cell_data: MapperCellData, layer: int) -> RID:
-	var shapes: Array[RID] = []
+	var shapes: Dictionary = {}
 
 	for polygon_index in cell_data.tile_data.get_collision_polygons_count(layer):
 		var shape: RID = _for_cell_body_polygon_point(cell_data, layer, polygon_index)
 		if shape != EMPTY_RID:
-			shapes.append(shape)
+			# Storing collision data like this prevents having to loop through all polygon points later
+			shapes[shape] = {"one_way": cell_data.tile_data.is_collision_polygon_one_way(layer, polygon_index),
+				"margin": cell_data.tile_data.get_collision_polygon_one_way_margin(layer, polygon_index)}
 
 	if shapes.size() == 0:
 		return EMPTY_RID
@@ -158,9 +155,14 @@ func _for_cell_body_physics_layer(cell_data: MapperCellData, layer: int) -> RID:
 	PhysicsServer2D.body_set_state(body, PhysicsServer2D.BODY_STATE_TRANSFORM, cell_data.transform)
 	PhysicsServer2D.body_set_collision_layer(body, tile_set.get_physics_layer_collision_layer(layer))
 	PhysicsServer2D.body_set_collision_mask(body, tile_set.get_physics_layer_collision_mask(layer))
+	PhysicsServer2D.body_set_constant_torque(body, cell_data.tile_data.get_constant_angular_velocity(layer))
+	PhysicsServer2D.body_set_constant_force(body, cell_data.tile_data.get_constant_linear_velocity(layer))
 
+	var i: int = 0
 	for shape in shapes:
 		PhysicsServer2D.body_add_shape(body, shape)
+		PhysicsServer2D.body_set_shape_as_one_way_collision(body, i, shapes[shape]["one_way"], shapes[shape]["margin"])
+		i += 1
 
 	if physics_material:
 		PhysicsServer2D.body_set_param(body, PhysicsServer2D.BODY_PARAM_BOUNCE, physics_material.bounce)
