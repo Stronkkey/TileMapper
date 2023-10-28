@@ -28,11 +28,12 @@ var _current_cell_index: int = 0
 func _set_cell_to_use_canvas_item(cell_data: MapperCellData) -> void:
 	cell_data.canvas_rid = RenderingServer.canvas_item_create()
 	_draw_tile(cell_data)
-	_update_cell(cell_data)
+	_update_canvas_item_cell(cell_data)
 
 
 func _set_cell_to_use_quadrant(cell_data: MapperCellData, quadrant: Quadrant) -> void:
 	RenderingServer.free_rid(cell_data.canvas_rid)
+	cell_data.canvas_rid = EMPTY_RID
 	quadrant.cells.append(cell_data)
 	_draw_quadrant_cell(cell_data, quadrant)
 
@@ -172,12 +173,12 @@ func _for_cell_body_physics_layer(cell_data: MapperCellData, layer: int) -> RID:
 func _general_cell_update(cell_data: MapperCellData) -> void:
 	if cell_data.canvas_rid:
 		_draw_tile(cell_data)
-		_update_cell(cell_data)
+		_update_canvas_item_cell(cell_data)
 	elif cell_data.current_quadrant:
 		_draw_quadrant(cell_data.current_quadrant)
 
 
-func _update_cell(cell_data: MapperCellData) -> void:
+func _update_canvas_item_cell(cell_data: MapperCellData) -> void:
 	RenderingServer.canvas_item_set_transform(cell_data.canvas_rid, cell_data.transform)
 	RenderingServer.canvas_item_set_z_index(cell_data.canvas_rid, cell_data.tile_data.z_index)
 	RenderingServer.canvas_item_set_default_texture_filter(cell_data.canvas_rid, int(texture_filter))
@@ -186,7 +187,7 @@ func _update_cell(cell_data: MapperCellData) -> void:
 
 
 func _get_cell_draw_state(cell_data: MapperCellData) -> CellDrawState:
-	if cell_data.canvas_rid is RID:
+	if cell_data.canvas_rid is RID and cell_data.canvas_rid != EMPTY_RID:
 		return CellDrawState.CANVAS_ITEM
 
 	if cell_data.current_quadrant is Quadrant:
@@ -246,7 +247,7 @@ func add_cell(coords: Vector2, source_id: int, atlas_coords: Vector2 = Vector2.Z
 	else:
 		cell_data.canvas_rid = RenderingServer.canvas_item_create()
 		_draw_tile(cell_data)
-		_update_cell(cell_data)
+		_update_canvas_item_cell(cell_data)
 
 	return cell_data
 
