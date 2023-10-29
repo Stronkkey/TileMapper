@@ -274,6 +274,19 @@ func use_quadrant_for_cell(cell_data: MapperCellData, overwrite_canvas_item: boo
 		_set_cell_to_use_quadrant(cell_data, quadrant)
 
 
+func set_quadrant_for_cell(cell_data: MapperCellData, quadrant: Quadrant, clear_previous_quadrant: bool = true, overwrite_canvas_item: bool = false) -> void:
+	var draw_state: CellDrawState = _get_cell_draw_state(cell_data)
+
+	if clear_previous_quadrant and cell_data.current_quadrant:
+		cell_data.current_quadrant.cells.erase(cell_data)
+
+	if not overwrite_canvas_item and draw_state == CellDrawState.CANVAS_ITEM:
+		return
+
+	cell_data.current_quadrant = quadrant
+	_draw_quadrant_cell(cell_data, quadrant)
+
+
 func get_used_tiles() -> Array[MapperCellData]:
 	return _tiles
 
