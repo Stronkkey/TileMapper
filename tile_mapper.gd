@@ -19,10 +19,24 @@ const EMPTY_RID: RID = RID()
 @export var quadrant_size: int = 64:
 	set = set_quadrant_size,
 	get = get_quadrant_size
+@export_enum("Default", "Force Show", "Force Hide") var collsion_visibliy_mode: int = 0
 
 var _tiles: Array[MapperCellData] = []
 var _quadrants: Array[Quadrant]
 var _current_cell_index: int = 0
+var _collision_visible: bool = false
+
+
+func _show_collision_shapes() -> bool:
+	if not is_inside_tree():
+		return false
+
+	match collsion_visibliy_mode:
+		1:
+			return true
+		0:
+			return ProjectSettings.get("debug/shapes/collision/shape_color") and get_tree().debug_collisions_hint
+	return false
 
 
 func _set_cell_to_use_canvas_item(cell_data: MapperCellData) -> void:
@@ -65,6 +79,9 @@ func _draw_quadrant_cell(cell_data: MapperCellData, quadrant: Quadrant) -> void:
 		cell_data.tile_data.modulate,
 		cell_data.tile_data.transpose)
 
+	if _show_collision_shapes():
+		_draw_collision_shape(quadrant.canvas_item, ProjectSettings.get("debug/shapes/collision/shape_color"), texture_rect)
+
 
 func _draw_quadrant(quadrant: Quadrant) -> void:
 	RenderingServer.canvas_item_clear(quadrant.canvas_item)
@@ -90,6 +107,13 @@ func _draw_tile(cell_data: MapperCellData) -> void:
 
 	if cell_data.tile_data.material:
 		RenderingServer.canvas_item_set_material(cell_data.canvas_rid, cell_data.tile_data.material.get_rid())
+
+	if _show_collision_shapes():
+		_draw_collision_shape(cell_data.canvas_rid, ProjectSettings.get("debug/shapes/collision/shape_color"), texture_rect)
+
+
+func _draw_collision_shape(on_canvas: RID, color: Color = Color("0099b36b"), rectangle: Rect2 = Rect2()) -> void:
+	RenderingServer.canvas_item_add_rect(on_canvas, rectangle, color)
 
 
 func _get_texture_region_from_cell_data(cell_data: MapperCellData) -> Rect2i:
