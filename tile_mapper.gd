@@ -39,8 +39,8 @@ func _set_cell_to_use_quadrant(cell_data: MapperCellData, quadrant: Quadrant) ->
 
 
 func _set_cell_transform(cell_data: MapperCellData, new_transform: Transform2D) -> void:
-	cell_data.transform = new_transform
 	var draw_state: CellDrawState = _get_cell_draw_state(cell_data)
+	cell_data.transform = new_transform
 
 	match draw_state:
 		CellDrawState.CANVAS_ITEM:
@@ -57,13 +57,14 @@ func _draw_quadrant_cell(cell_data: MapperCellData, quadrant: Quadrant) -> void:
 	var texture_rect: Rect2i = size_rect
 
 	texture_rect.position += cell_data.tile_data.texture_origin
-	texture_rect.position += Vector2i(cell_data.transform.origin)
+	RenderingServer.canvas_item_add_set_transform(quadrant.canvas_item, cell_data.transform)
 	RenderingServer.canvas_item_add_texture_rect_region(quadrant.canvas_item,
 		texture_rect,
 		cell_data.texture.get_rid(),
 		size_rect,
 		cell_data.tile_data.modulate,
 		cell_data.tile_data.transpose)
+	RenderingServer.canvas_item_add_set_transform(quadrant.canvas_item, cell_data.transform)
 
 
 func _draw_quadrant(quadrant: Quadrant) -> void:
@@ -285,6 +286,10 @@ func set_quadrant_for_cell(cell_data: MapperCellData, quadrant: Quadrant, clear_
 
 	cell_data.current_quadrant = quadrant
 	_draw_quadrant_cell(cell_data, quadrant)
+
+
+func redraw_quadrant(quadrant: Quadrant) -> void:
+	_draw_quadrant(quadrant)
 
 
 func get_used_tiles() -> Array[MapperCellData]:
