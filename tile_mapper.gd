@@ -110,6 +110,10 @@ func _get_texture_from_source_id(source_id: int) -> Texture:
 	return source.texture if source is TileSetAtlasSource else null
 
 
+func _get_quadrant() -> Quadrant:
+	return _current_quadrant if _current_quadrant is Quadrant else _create_new_quadrant()
+
+
 func _create_convex_shape(points: PackedVector2Array) -> RID:
 	var shape: RID = PhysicsServer2D.convex_polygon_shape_create()
 	PhysicsServer2D.shape_set_data(shape, points)
@@ -227,7 +231,7 @@ func update_cell_with_tile_data(cell_data: MapperCellData, tile_data: TileData) 
 	_general_cell_update(cell_data)
 
 
-func add_cell(coords: Vector2, source_id: int, atlas_coords: Vector2 = Vector2.ZERO, alternative_tile: int = 0, keep_reference: bool = true, use_quadrants: bool = true) -> MapperCellData:
+func add_cell(coords: Vector2, source_id: int, atlas_coords: Vector2 = Vector2.ZERO, alternative_tile: int = 0) -> MapperCellData:
 	var cell_data: MapperCellData = MapperCellData.new()
 	var source: TileSetSource = tile_set.get_source(source_id) if tile_set is TileSet else null
 
@@ -238,23 +242,16 @@ func add_cell(coords: Vector2, source_id: int, atlas_coords: Vector2 = Vector2.Z
 	cell_data.physics_bodies_rid = _create_physics_bodies_for_cell(cell_data)
 	cell_data.source_id = source_id
 
-	if use_quadrants:
-		if not _current_quadrant is Quadrant:
-			_current_quadrant = _create_new_quadrant()
+	var quadrant: Quadrant = _get_quadrant()
 
-		if _current_quadrant.cells.size() >= quadrant_size:
-			_current_quadrant = _create_new_quadrant()
+	if quadrant.cells.size() >= quadrant_size:
+		_current_quadrant = _create_new_quadrant()
 
-		if keep_reference:
-			_current_quadrant.cells.append(cell_data)
-			_tiles.append(cell_data)
+	quadrant.cells.append(cell_data)
+	_tiles.append(cell_data)
 
-		cell_data.current_quadrant = _current_quadrant
-		_draw_quadrant_cell(cell_data, _current_quadrant)
-	else:
-		cell_data.canvas_rid = RenderingServer.canvas_item_create()
-		_draw_tile(cell_data)
-		_update_canvas_item_cell(cell_data)
+	cell_data.current_quadrant = quadrant
+	_draw_quadrant_cell(cell_data, quadrant)
 
 	return cell_data
 
@@ -270,13 +267,7 @@ func use_quadrant_for_cell(cell_data: MapperCellData, overwrite_canvas_item: boo
 	var can_overwrite_canvas_item: bool = (cell_data.canvas_rid and overwrite_canvas_item) or not cell_data.canvas_rid
 
 	if _get_cell_draw_state(cell_data) != CellDrawState.CANVAS_ITEM and can_overwrite_canvas_item:
-		var quadrant: Quadrant = _quadrants[-1] if _quadrants.size() > 0 else null
-
-		if not quadrant is Quadrant:
-			push_warning("Tried to use quadrant but quadrants size is 0?")
-			return
-
-		_set_cell_to_use_quadrant(cell_data, quadrant)
+		_set_cell_to_use_quadrant(cell_data, _get_quadrant())
 
 
 func set_quadrant_for_cell(cell_data: MapperCellData, quadrant: Quadrant, clear_previous_quadrant: bool = true, overwrite_canvas_item: bool = false) -> void:
@@ -284,6 +275,8 @@ func set_quadrant_for_cell(cell_data: MapperCellData, quadrant: Quadrant, clear_
 
 	if clear_previous_quadrant and cell_data.current_quadrant:
 		cell_data.current_quadrant.cells.erase(cell_data)
+		redraw_quadrant(cell_data.current_quadrant)
+		_current_quadrant = cell_data.current_quadrant
 
 	if not overwrite_canvas_item and draw_state == CellDrawState.CANVAS_ITEM:
 		return
