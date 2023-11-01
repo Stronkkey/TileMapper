@@ -296,6 +296,21 @@ func update_cell(cell_data: MapperCellData) -> void:
 	_general_cell_update(cell_data)
 
 
+func destroy_cell(cell_data: MapperCellData) -> void:
+	if cell_data.canvas_rid:
+		RenderingServer.free_rid(cell_data.canvas_rid)
+
+	if cell_data.current_quadrant:
+		cell_data.current_quadrant.cells.erase(cell_data)
+		redraw_quadrant(cell_data.current_quadrant)
+
+	for body in cell_data.physics_bodies_rid:
+		PhysicsServer2D.free_rid(body)
+
+	cell_data.physics_bodies_rid.clear()
+	_tiles.erase(cell_data)
+
+
 func get_used_tiles() -> Array[MapperCellData]:
 	return _tiles
 
