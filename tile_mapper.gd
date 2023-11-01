@@ -22,7 +22,7 @@ const EMPTY_RID: RID = RID()
 
 var _tiles: Array[MapperCellData] = []
 var _quadrants: Array[Quadrant]
-var _current_cell_index: int = 0
+var _current_quadrant: Quadrant
 
 
 func _set_cell_to_use_canvas_item(cell_data: MapperCellData) -> void:
@@ -130,6 +130,14 @@ func _create_physics_bodies_for_cell(cell_data: MapperCellData) -> Array[RID]:
 	return bodies
 
 
+func _create_new_quadrant() -> Quadrant:
+	var new_quadrant: Quadrant = Quadrant.new()
+	new_quadrant.canvas_item = RenderingServer.canvas_item_create()
+	RenderingServer.canvas_item_set_parent(new_quadrant.canvas_item, get_canvas_item())
+	_quadrants.append(new_quadrant)
+	return new_quadrant
+
+
 func _for_cell_body_polygon_point(cell_data: MapperCellData, layer: int, polgyon_index: int) -> RID:
 	var points: PackedVector2Array = cell_data.tile_data.get_collision_polygon_points(layer, polgyon_index)
 	return _create_shape_with_points(points) if points.size() > 3 else EMPTY_RID
@@ -223,16 +231,6 @@ func add_cell(coords: Vector2, source_id: int, atlas_coords: Vector2 = Vector2.Z
 	var cell_data: MapperCellData = MapperCellData.new()
 	var source: TileSetSource = tile_set.get_source(source_id) if tile_set is TileSet else null
 
-	_current_cell_index += 1
-	if _current_cell_index == 1:
-		var new_quadrant: Quadrant = Quadrant.new()
-		new_quadrant.canvas_item = RenderingServer.canvas_item_create()
-		RenderingServer.canvas_item_set_parent(new_quadrant.canvas_item, get_canvas_item())
-		_quadrants.append(new_quadrant)
-
-	if _current_cell_index == quadrant_size:
-		_current_cell_index = 0
-
 	cell_data.texture = _get_texture_from_source_id(source_id)
 	cell_data.atlas_coords = atlas_coords
 	cell_data.transform = Transform2D(0, coords)
@@ -241,12 +239,18 @@ func add_cell(coords: Vector2, source_id: int, atlas_coords: Vector2 = Vector2.Z
 	cell_data.source_id = source_id
 
 	if use_quadrants:
-		var quadrant: Quadrant = _quadrants[-1]
+		if not _current_quadrant is Quadrant:
+			_current_quadrant = _create_new_quadrant()
+
+		if _current_quadrant.cells.size() >= quadrant_size:
+			_current_quadrant = _create_new_quadrant()
+
 		if keep_reference:
-			quadrant.cells.append(cell_data)
+			_current_quadrant.cells.append(cell_data)
 			_tiles.append(cell_data)
-		cell_data.current_quadrant = quadrant
-		_draw_quadrant_cell(cell_data, quadrant)
+
+		cell_data.current_quadrant = _current_quadrant
+		_draw_quadrant_cell(cell_data, _current_quadrant)
 	else:
 		cell_data.canvas_rid = RenderingServer.canvas_item_create()
 		_draw_tile(cell_data)
@@ -302,6 +306,7 @@ func destroy_cell(cell_data: MapperCellData) -> void:
 
 	if cell_data.current_quadrant:
 		cell_data.current_quadrant.cells.erase(cell_data)
+		_current_quadrant = cell_data.current_quadrant
 		redraw_quadrant(cell_data.current_quadrant)
 
 	for body in cell_data.physics_bodies_rid:
