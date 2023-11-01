@@ -292,6 +292,10 @@ func redraw_quadrant(quadrant: Quadrant) -> void:
 	_draw_quadrant(quadrant)
 
 
+func update_cell(cell_data: MapperCellData) -> void:
+	_general_cell_update(cell_data)
+
+
 func get_used_tiles() -> Array[MapperCellData]:
 	return _tiles
 
