@@ -19,6 +19,9 @@ const EMPTY_RID: RID = RID()
 @export var quadrant_size: int = 64:
 	set = set_quadrant_size,
 	get = get_quadrant_size
+@export_enum("Default", "Force Show", "Force Hide") var collision_visibility: int = 0:
+	set = set_collision_visibility,
+	get = get_collision_visibility
 
 var _tiles: Array[MapperCellData] = []
 var _quadrants: Array[Quadrant]
@@ -73,6 +76,7 @@ func _draw_quadrant(quadrant: Quadrant) -> void:
 		if cell_data.canvas_rid:
 			continue
 		_draw_quadrant_cell(cell_data, quadrant)
+		_draw_debug(cell_data)
 
 
 func _draw_tile(cell_data: MapperCellData) -> void:
@@ -91,6 +95,27 @@ func _draw_tile(cell_data: MapperCellData) -> void:
 
 	if cell_data.tile_data.material:
 		RenderingServer.canvas_item_set_material(cell_data.canvas_rid, cell_data.tile_data.material.get_rid())
+
+
+func _draw_debug_cell(cell_data: MapperCellData, debug_color: Color) -> void:
+	for body in cell_data.physics_bodies_rid:
+		for i in PhysicsServer2D.body_get_shape_count(body):
+			var shape: RID = PhysicsServer2D.body_get_shape(body, i)
+			var shape_type: PhysicsServer2D.ShapeType = PhysicsServer2D.shape_get_type(shape)
+
+			assert(shape_type == PhysicsServer2D.SHAPE_CONVEX_POLYGON, "Wrong shape type for a tile, should be SHAPE_CONVEX_POLYGON.")
+
+			_draw_cell_shape(_get_draw_rid_from_cell(cell_data), shape, debug_color)
+
+
+func _draw_debug(cell_data: MapperCellData) -> void:
+	var debug_collision_color: Color = ProjectSettings.get("debug/shapes/collision/shape_color")
+	if _should_draw_debug_shapes():
+		_draw_debug_cell(cell_data, debug_collision_color)
+
+
+func _draw_cell_shape(draw_rid: RID, shape: RID, color: Color) -> void:
+	RenderingServer.canvas_item_add_polygon(draw_rid, PhysicsServer2D.shape_get_data(shape), [color])
 
 
 func _get_texture_region_from_cell_data(cell_data: MapperCellData) -> Rect2i:
@@ -112,6 +137,15 @@ func _get_texture_from_source_id(source_id: int) -> Texture:
 
 func _get_quadrant() -> Quadrant:
 	return _current_quadrant if _current_quadrant is Quadrant else _create_new_quadrant()
+
+
+func _get_draw_rid_from_cell(cell_data: MapperCellData) -> RID:
+	assert(_is_cell_valid(cell_data), "Invalid cell.")
+	var draw_state: CellDrawState = _get_cell_draw_state(cell_data)
+	if draw_state == CellDrawState.CANVAS_ITEM:
+		return cell_data.canvas_rid
+
+	return cell_data.current_quadrant.canvas_item
 
 
 func _create_convex_shape(points: PackedVector2Array) -> RID:
@@ -202,13 +236,21 @@ func _update_canvas_item_cell(cell_data: MapperCellData) -> void:
 
 
 func _get_cell_draw_state(cell_data: MapperCellData) -> CellDrawState:
-	if cell_data.canvas_rid is RID and cell_data.canvas_rid != EMPTY_RID:
+	if cell_data is MapperCellData and cell_data.canvas_rid is RID and cell_data.canvas_rid != EMPTY_RID:
 		return CellDrawState.CANVAS_ITEM
 
 	if cell_data.current_quadrant is Quadrant:
 		return CellDrawState.QUADRANT
 
 	return CellDrawState.NONE
+
+
+func _is_cell_valid(cell_data: MapperCellData) -> bool:
+	return true if _get_cell_draw_state(cell_data) != CellDrawState.NONE else false
+
+
+func _should_draw_debug_shapes() -> bool:
+	return true if (get_tree().debug_collisions_hint and collision_visibility == 0) or collision_visibility == 1 else false
 
 
 func set_transform_of_cell(cell_data: MapperCellData, new_transform: Transform2D) -> void:
@@ -252,6 +294,7 @@ func add_cell(coords: Vector2, source_id: int, atlas_coords: Vector2 = Vector2.Z
 
 	cell_data.current_quadrant = quadrant
 	_draw_quadrant_cell(cell_data, quadrant)
+	_draw_debug(cell_data)
 
 	return cell_data
 
@@ -340,6 +383,14 @@ func set_quadrant_size(value: int) -> void:
 
 func get_quadrant_size() -> int:
 	return quadrant_size
+
+
+func set_collision_visibility(value: int) -> void:
+	collision_visibility = value
+
+
+func get_collision_visibility() -> int:
+	return collision_visibility
 
 
 class MapperCellData:
