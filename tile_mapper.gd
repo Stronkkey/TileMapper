@@ -67,7 +67,6 @@ func _draw_quadrant_cell(cell_data: MapperCellData, quadrant: Quadrant) -> void:
 		size_rect,
 		cell_data.tile_data.modulate,
 		cell_data.tile_data.transpose)
-	RenderingServer.canvas_item_add_set_transform(quadrant.canvas_item, cell_data.transform)
 
 
 func _draw_quadrant(quadrant: Quadrant) -> void:
@@ -236,11 +235,13 @@ func _for_cell_body_physics_layer(cell_data: MapperCellData, layer: int) -> RID:
 
 
 func _general_cell_update(cell_data: MapperCellData) -> void:
-	if cell_data.canvas_rid:
-		_draw_tile(cell_data)
-		_update_canvas_item_cell(cell_data)
-	elif cell_data.current_quadrant:
-		_draw_quadrant(cell_data.current_quadrant)
+	var draw_state: CellDrawState = _get_cell_draw_state(cell_data)
+	match draw_state:
+		CellDrawState.CANVAS_ITEM:
+			_draw_tile(cell_data)
+			_update_canvas_item_cell(cell_data)
+		CellDrawState.QUADRANT:
+			_draw_quadrant(cell_data.current_quadrant)
 
 
 func _update_canvas_item_cell(cell_data: MapperCellData) -> void:
