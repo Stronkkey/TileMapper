@@ -81,7 +81,6 @@ func _draw_tile(cell_data: MapperCellData) -> void:
 	var size_rect: Rect2i = _get_texture_region_from_cell_data(cell_data)
 	var texture_rect: Rect2i = Rect2i(size_rect.position + cell_data.tile_data.texture_origin, size_rect.size)
 
-	texture_rect.position += cell_data.tile_data.texture_origin
 	RenderingServer.canvas_item_clear(cell_data.canvas_rid)
 	RenderingServer.canvas_item_add_texture_rect_region(cell_data.canvas_rid,
 		texture_rect,
@@ -186,6 +185,10 @@ func _create_new_quadrant() -> Quadrant:
 	var new_quadrant: Quadrant = Quadrant.new()
 	new_quadrant.canvas_item = RenderingServer.canvas_item_create()
 	RenderingServer.canvas_item_set_parent(new_quadrant.canvas_item, get_canvas_item())
+
+	if material:
+		RenderingServer.canvas_item_set_material(new_quadrant.canvas_item, material.get_rid())
+
 	_quadrants.append(new_quadrant)
 	return new_quadrant
 
