@@ -28,6 +28,9 @@ var _current_quadrant: Quadrant
 
 func _set_cell_to_use_canvas_item(cell_data: MapperCellData) -> void:
 	cell_data.canvas_rid = RenderingServer.canvas_item_create()
+	cell_data.current_quadrant.cells.erase(cell_data)
+	_draw_quadrant(cell_data.current_quadrant)
+	cell_data.current_quadrant = null
 	_draw_tile(cell_data)
 	_update_canvas_item_cell(cell_data)
 
