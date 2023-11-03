@@ -97,24 +97,29 @@ func _draw_tile(cell_data: MapperCellData) -> void:
 		RenderingServer.canvas_item_set_material(cell_data.canvas_rid, cell_data.tile_data.material.get_rid())
 
 
+func _draw_debug_cell_for_shape(cell_data: MapperCellData, body: RID, shape_index: int, debug_color: Color) -> void:
+	var shape: RID = PhysicsServer2D.body_get_shape(body, shape_index)
+	var shape_type: PhysicsServer2D.ShapeType = PhysicsServer2D.shape_get_type(shape)
+	var shape_transform: Transform2D = PhysicsServer2D.body_get_shape_transform(body, shape_index)
+
+	assert(shape_type == PhysicsServer2D.SHAPE_CONVEX_POLYGON, "Wrong shape type for a tile, should be SHAPE_CONVEX_POLYGON.")
+
+	_draw_cell_shape(_get_draw_rid_from_cell(cell_data), shape, debug_color, cell_data.transform * shape_transform)
+
+
 func _draw_debug_cell(cell_data: MapperCellData, debug_color: Color) -> void:
 	for body in cell_data.physics_bodies_rid:
-		for i in PhysicsServer2D.body_get_shape_count(body):
-			var shape: RID = PhysicsServer2D.body_get_shape(body, i)
-			var shape_type: PhysicsServer2D.ShapeType = PhysicsServer2D.shape_get_type(shape)
-
-			assert(shape_type == PhysicsServer2D.SHAPE_CONVEX_POLYGON, "Wrong shape type for a tile, should be SHAPE_CONVEX_POLYGON.")
-
-			_draw_cell_shape(_get_draw_rid_from_cell(cell_data), shape, debug_color)
+		for shape_index in PhysicsServer2D.body_get_shape_count(body):
+			_draw_debug_cell_for_shape(cell_data, body, shape_index, debug_color)
 
 
 func _draw_debug(cell_data: MapperCellData) -> void:
-	var debug_collision_color: Color = ProjectSettings.get("debug/shapes/collision/shape_color")
 	if _should_draw_debug_shapes():
-		_draw_debug_cell(cell_data, debug_collision_color)
+		_draw_debug_cell(cell_data, ProjectSettings.get("debug/shapes/collision/shape_color"))
 
 
-func _draw_cell_shape(draw_rid: RID, shape: RID, color: Color) -> void:
+func _draw_cell_shape(draw_rid: RID, shape: RID, color: Color, body_transform: Transform2D) -> void:
+	RenderingServer.canvas_item_add_set_transform(draw_rid, body_transform)
 	RenderingServer.canvas_item_add_polygon(draw_rid, PhysicsServer2D.shape_get_data(shape), [color])
 
 
@@ -146,6 +151,16 @@ func _get_draw_rid_from_cell(cell_data: MapperCellData) -> RID:
 		return cell_data.canvas_rid
 
 	return cell_data.current_quadrant.canvas_item
+
+
+func _get_cell_draw_state(cell_data: MapperCellData) -> CellDrawState:
+	if cell_data is MapperCellData and cell_data.canvas_rid is RID and cell_data.canvas_rid != EMPTY_RID:
+		return CellDrawState.CANVAS_ITEM
+
+	if cell_data.current_quadrant is Quadrant:
+		return CellDrawState.QUADRANT
+
+	return CellDrawState.NONE
 
 
 func _create_convex_shape(points: PackedVector2Array) -> RID:
@@ -196,6 +211,7 @@ func _for_cell_body_physics_layer(cell_data: MapperCellData, layer: int) -> RID:
 
 	var physics_material: PhysicsMaterial = tile_set.get_physics_layer_physics_material(layer)
 	var body: RID = PhysicsServer2D.body_create()
+	var cell_size: Vector2 = _get_texture_region_from_cell_data(cell_data).size
 
 	PhysicsServer2D.body_set_mode(body, collision_type)
 	PhysicsServer2D.body_set_space(body, get_world_2d().space)
@@ -207,7 +223,7 @@ func _for_cell_body_physics_layer(cell_data: MapperCellData, layer: int) -> RID:
 
 	var i: int = 0
 	for shape in shapes:
-		PhysicsServer2D.body_add_shape(body, shape)
+		PhysicsServer2D.body_add_shape(body, shape, Transform2D(0, cell_size / 2))
 		PhysicsServer2D.body_set_shape_as_one_way_collision(body, i, shapes[shape]["one_way"], shapes[shape]["margin"])
 		i += 1
 
@@ -233,16 +249,6 @@ func _update_canvas_item_cell(cell_data: MapperCellData) -> void:
 	RenderingServer.canvas_item_set_default_texture_filter(cell_data.canvas_rid, int(texture_filter))
 	RenderingServer.canvas_item_set_default_texture_repeat(cell_data.canvas_rid, int(texture_repeat))
 	RenderingServer.canvas_item_set_light_mask(cell_data.canvas_rid, get_light_mask())
-
-
-func _get_cell_draw_state(cell_data: MapperCellData) -> CellDrawState:
-	if cell_data is MapperCellData and cell_data.canvas_rid is RID and cell_data.canvas_rid != EMPTY_RID:
-		return CellDrawState.CANVAS_ITEM
-
-	if cell_data.current_quadrant is Quadrant:
-		return CellDrawState.QUADRANT
-
-	return CellDrawState.NONE
 
 
 func _is_cell_valid(cell_data: MapperCellData) -> bool:
@@ -399,7 +405,7 @@ class MapperCellData:
 	var physics_bodies_rid: Array[RID] = []
 	var atlas_coords: Vector2i = Vector2i.ZERO
 	var transform: Transform2D = Transform2D()
-	var texture: Texture
+	var texture: Texture2D
 	var tile_data: TileData
 	var source_id: int = 0
 
