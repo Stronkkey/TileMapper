@@ -11,12 +11,12 @@ enum CellDrawState {
 @export var tile_set: TileSet:
 	set = set_tileset,
 	get = get_tileset
-@export_enum("Static", "Kinematic") var collision_type: int = PhysicsServer2D.BODY_MODE_STATIC:
-	set = set_collision_type,
-	get = get_collision_type
 @export var quadrant_size: int = 64:
 	set = set_quadrant_size,
 	get = get_quadrant_size
+@export_enum("Static", "Kinematic") var collision_type: int = PhysicsServer2D.BODY_MODE_STATIC:
+	set = set_collision_type,
+	get = get_collision_type
 @export_enum("Default", "Force Show", "Force Hide") var collision_visibility: int = 0:
 	set = set_collision_visibility,
 	get = get_collision_visibility
