@@ -276,8 +276,15 @@ func update_cell_with_tile_data(cell_data: MapperCellData, tile_data: TileData) 
 
 
 func add_cell(coords: Vector2, source_id: int, atlas_coords: Vector2 = Vector2.ZERO, alternative_tile: int = 0) -> MapperCellData:
+	assert(tile_set, "Tried adding cell with no TileSet.")
+	assert(tile_set.has_source(source_id), "Source with id {0} does not exist.")
+
 	var cell_data: MapperCellData = MapperCellData.new()
-	var source: TileSetSource = tile_set.get_source(source_id) if tile_set is TileSet else null
+	var source: TileSetSource = tile_set.get_source(source_id)
+
+	assert(source is TileSetAtlasSource, "Tile source with id {0} is not a TileSetAtlasSource. Only TileSetAtlasSource are currently supported".format([source_id]))
+	assert(source.has_tile(atlas_coords), "No tile at {0}.".format([atlas_coords]))
+	assert(source.has_alternative_tile(atlas_coords, alternative_tile), "No alternative tile with id {0} at {1}".format([alternative_tile, atlas_coords]))
 
 	cell_data.texture = _get_texture_from_source_id(source_id)
 	cell_data.atlas_coords = atlas_coords
