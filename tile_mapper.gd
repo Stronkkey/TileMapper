@@ -406,7 +406,7 @@ class MapperCellData:
 	var physics_bodies_rid: Array[RID] = []
 	var atlas_coords: Vector2i = Vector2i.ZERO
 	var transform: Transform2D = Transform2D()
-	var texture: Texture2D
+	var texture: Texture
 	var tile_data: TileData
 	var source_id: int = 0
 
