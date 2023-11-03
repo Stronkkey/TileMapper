@@ -129,7 +129,7 @@ func _get_texture_region_from_atlas_source(source_id: int, atlas_coords: Vector2
 	if source is TileSetAtlasSource:
 		return source.get_tile_texture_region(atlas_coords)
 
-	return Rect2i(NAN, NAN, NAN, NAN)
+	return Rect2i()
 
 
 func _get_texture_from_source_id(source_id: int) -> Texture:
