@@ -43,10 +43,9 @@ func _set_cell_to_use_quadrant(cell_data: MapperCellData, quadrant: Quadrant) ->
 
 
 func _set_cell_transform(cell_data: MapperCellData, new_transform: Transform2D) -> void:
-	var draw_state: CellDrawState = _get_cell_draw_state(cell_data)
 	cell_data.transform = new_transform
 
-	match draw_state:
+	match _get_cell_draw_state(cell_data):
 		CellDrawState.CANVAS_ITEM:
 			RenderingServer.canvas_item_set_transform(cell_data.canvas_rid, cell_data.transform)
 		CellDrawState.QUADRANT:
@@ -237,8 +236,7 @@ func _for_cell_body_physics_layer(cell_data: MapperCellData, layer: int) -> RID:
 
 
 func _general_cell_update(cell_data: MapperCellData) -> void:
-	var draw_state: CellDrawState = _get_cell_draw_state(cell_data)
-	match draw_state:
+	match _get_cell_draw_state(cell_data):
 		CellDrawState.CANVAS_ITEM:
 			_draw_tile(cell_data)
 			_update_canvas_item_cell(cell_data)
