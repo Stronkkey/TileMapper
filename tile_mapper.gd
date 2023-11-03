@@ -308,17 +308,13 @@ func add_cell(coords: Vector2, source_id: int, atlas_coords: Vector2 = Vector2.Z
 	return cell_data
 
 
-func use_canvas_item_for_cell(cell_data: MapperCellData, overwrite_quadrant: bool = false) -> void:
-	var can_overwrite_quadrant: bool = (cell_data.current_quadrant and overwrite_quadrant) or not cell_data.current_quadrant
-
-	if _get_cell_draw_state(cell_data) != CellDrawState.QUADRANT and can_overwrite_quadrant:
+func use_canvas_item_for_cell(cell_data: MapperCellData) -> void:
+	if _get_cell_draw_state(cell_data) != CellDrawState.QUADRANT:
 		_set_cell_to_use_canvas_item(cell_data)
 
 
-func use_quadrant_for_cell(cell_data: MapperCellData, overwrite_canvas_item: bool = false) -> void:
-	var can_overwrite_canvas_item: bool = (cell_data.canvas_rid and overwrite_canvas_item) or not cell_data.canvas_rid
-
-	if _get_cell_draw_state(cell_data) != CellDrawState.CANVAS_ITEM and can_overwrite_canvas_item:
+func use_quadrant_for_cell(cell_data: MapperCellData) -> void:
+	if _get_cell_draw_state(cell_data) != CellDrawState.CANVAS_ITEM:
 		_set_cell_to_use_quadrant(cell_data, _get_quadrant())
 
 
