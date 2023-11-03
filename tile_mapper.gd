@@ -133,8 +133,7 @@ func _get_texture_region_from_atlas_source(source_id: int, atlas_coords: Vector2
 
 
 func _get_texture_from_source_id(source_id: int) -> Texture:
-	var source: TileSetSource = tile_set.get_source(source_id)
-	return source.texture if source is TileSetAtlasSource else null
+	return tile_set.get_source(source_id).texture
 
 
 func _get_quadrant() -> Quadrant:
@@ -143,21 +142,13 @@ func _get_quadrant() -> Quadrant:
 
 func _get_draw_rid_from_cell(cell_data: MapperCellData) -> RID:
 	assert(_is_cell_valid(cell_data), "Invalid cell.")
-	var draw_state: CellDrawState = _get_cell_draw_state(cell_data)
-	if draw_state == CellDrawState.CANVAS_ITEM:
-		return cell_data.canvas_rid
-
-	return cell_data.current_quadrant.canvas_item
+	return cell_data.canvas_rid if _get_cell_draw_state(cell_data) == CellDrawState.CANVAS_ITEM else cell_data.current_quadrant.canvas_item
 
 
 func _get_cell_draw_state(cell_data: MapperCellData) -> CellDrawState:
-	if cell_data is MapperCellData and cell_data.canvas_rid is RID and cell_data.canvas_rid != RID():
+	if cell_data and cell_data.canvas_rid and cell_data.canvas_rid != RID():
 		return CellDrawState.CANVAS_ITEM
-
-	if cell_data.current_quadrant is Quadrant:
-		return CellDrawState.QUADRANT
-
-	return CellDrawState.NONE
+	return CellDrawState.QUADRANT if cell_data.current_quadrant else CellDrawState.NONE
 
 
 func _create_convex_shape(points: PackedVector2Array) -> RID:
@@ -203,10 +194,12 @@ func _for_cell_body_physics_layer(cell_data: MapperCellData, layer: int) -> RID:
 
 	for polygon_index in cell_data.tile_data.get_collision_polygons_count(layer):
 		var shape: RID = _for_cell_body_polygon_point(cell_data, layer, polygon_index)
-		if shape != RID():
-			# Storing collision data like this prevents having to loop through all polygon points later
-			shapes[shape] = {"one_way": cell_data.tile_data.is_collision_polygon_one_way(layer, polygon_index),
-				"margin": cell_data.tile_data.get_collision_polygon_one_way_margin(layer, polygon_index)}
+		if shape == RID():
+			continue
+
+		shapes[shape] = { # Storing collision data like this prevents having to loop through all polygon points later
+			"one_way": cell_data.tile_data.is_collision_polygon_one_way(layer, polygon_index),
+			"margin": cell_data.tile_data.get_collision_polygon_one_way_margin(layer, polygon_index)}
 
 	if shapes.size() == 0:
 		return RID()
@@ -267,7 +260,7 @@ func set_transform_of_cell(cell_data: MapperCellData, new_transform: Transform2D
 
 
 func set_cell_scale(cell_data: MapperCellData, new_scale: Vector2) -> void:
-	var new_transform: Transform2D = cell_data.transform.scaled_local(cell_data.transform.get_scale()).scaled_local(new_scale)
+	var new_transform: Transform2D = cell_data.transform.scaled_local(cell_data.transform.get_scale()).scaled(new_scale)
 	_set_cell_transform(cell_data, new_transform)
 
 
@@ -318,15 +311,8 @@ func use_quadrant_for_cell(cell_data: MapperCellData) -> void:
 		_set_cell_to_use_quadrant(cell_data, _get_quadrant())
 
 
-func set_quadrant_for_cell(cell_data: MapperCellData, quadrant: Quadrant, clear_previous_quadrant: bool = true, overwrite_canvas_item: bool = false) -> void:
-	var draw_state: CellDrawState = _get_cell_draw_state(cell_data)
-
-	if clear_previous_quadrant and cell_data.current_quadrant:
-		cell_data.current_quadrant.cells.erase(cell_data)
-		redraw_quadrant(cell_data.current_quadrant)
-		_current_quadrant = cell_data.current_quadrant
-
-	if not overwrite_canvas_item and draw_state == CellDrawState.CANVAS_ITEM:
+func set_quadrant_for_cell(cell_data: MapperCellData, quadrant: Quadrant) -> void:
+	if _get_cell_draw_state(cell_data) == CellDrawState.QUADRANT:
 		return
 
 	cell_data.current_quadrant = quadrant
@@ -348,7 +334,7 @@ func destroy_cell(cell_data: MapperCellData) -> void:
 	if cell_data.current_quadrant:
 		cell_data.current_quadrant.cells.erase(cell_data)
 		_current_quadrant = cell_data.current_quadrant
-		redraw_quadrant(cell_data.current_quadrant)
+		_draw_quadrant(cell_data.current_quadrant)
 
 	for body in cell_data.physics_bodies_rid:
 		PhysicsServer2D.free_rid(body)
@@ -392,6 +378,9 @@ func get_quadrant_size() -> int:
 
 func set_collision_visibility(value: int) -> void:
 	collision_visibility = value
+
+	for cell in _tiles:
+		_draw_debug(cell)
 
 
 func get_collision_visibility() -> int:
