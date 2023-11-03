@@ -8,8 +8,6 @@ enum CellDrawState {
 	NONE
 }
 
-const EMPTY_RID: RID = RID()
-
 @export var tile_set: TileSet:
 	set = set_tileset,
 	get = get_tileset
@@ -36,7 +34,7 @@ func _set_cell_to_use_canvas_item(cell_data: MapperCellData) -> void:
 
 func _set_cell_to_use_quadrant(cell_data: MapperCellData, quadrant: Quadrant) -> void:
 	RenderingServer.free_rid(cell_data.canvas_rid)
-	cell_data.canvas_rid = EMPTY_RID
+	cell_data.canvas_rid = RID()
 	quadrant.cells.append(cell_data)
 	_draw_quadrant_cell(cell_data, quadrant)
 
@@ -153,7 +151,7 @@ func _get_draw_rid_from_cell(cell_data: MapperCellData) -> RID:
 
 
 func _get_cell_draw_state(cell_data: MapperCellData) -> CellDrawState:
-	if cell_data is MapperCellData and cell_data.canvas_rid is RID and cell_data.canvas_rid != EMPTY_RID:
+	if cell_data is MapperCellData and cell_data.canvas_rid is RID and cell_data.canvas_rid != RID():
 		return CellDrawState.CANVAS_ITEM
 
 	if cell_data.current_quadrant is Quadrant:
@@ -177,7 +175,8 @@ func _create_physics_bodies_for_cell(cell_data: MapperCellData) -> Array[RID]:
 
 	for layer in tile_set.get_physics_layers_count():
 		var body: RID = _for_cell_body_physics_layer(cell_data, layer)
-		bodies.append(body)
+		if body != RID():
+			bodies.append(body)
 
 	return bodies
 
@@ -192,7 +191,7 @@ func _create_new_quadrant() -> Quadrant:
 
 func _for_cell_body_polygon_point(cell_data: MapperCellData, layer: int, polygon_index: int) -> RID:
 	var points: PackedVector2Array = cell_data.tile_data.get_collision_polygon_points(layer, polygon_index)
-	return _create_shape_with_points(points) if points.size() > 3 else EMPTY_RID
+	return _create_shape_with_points(points) if points.size() > 3 else RID()
 
 
 func _for_cell_body_physics_layer(cell_data: MapperCellData, layer: int) -> RID:
@@ -200,13 +199,13 @@ func _for_cell_body_physics_layer(cell_data: MapperCellData, layer: int) -> RID:
 
 	for polygon_index in cell_data.tile_data.get_collision_polygons_count(layer):
 		var shape: RID = _for_cell_body_polygon_point(cell_data, layer, polygon_index)
-		if shape != EMPTY_RID:
+		if shape != RID():
 			# Storing collision data like this prevents having to loop through all polygon points later
 			shapes[shape] = {"one_way": cell_data.tile_data.is_collision_polygon_one_way(layer, polygon_index),
 				"margin": cell_data.tile_data.get_collision_polygon_one_way_margin(layer, polygon_index)}
 
 	if shapes.size() == 0:
-		return EMPTY_RID
+		return RID()
 
 	var physics_material: PhysicsMaterial = tile_set.get_physics_layer_physics_material(layer)
 	var body: RID = PhysicsServer2D.body_create()
@@ -401,7 +400,7 @@ func get_collision_visibility() -> int:
 
 
 class MapperCellData:
-	var canvas_rid: RID = EMPTY_RID
+	var canvas_rid: RID
 	var current_quadrant: Quadrant
 	var physics_bodies_rid: Array[RID] = []
 	var atlas_coords: Vector2i = Vector2i.ZERO
@@ -413,4 +412,4 @@ class MapperCellData:
 
 class Quadrant:
 	var cells: Array[MapperCellData]
-	var canvas_item: RID = EMPTY_RID
+	var canvas_item: RID
