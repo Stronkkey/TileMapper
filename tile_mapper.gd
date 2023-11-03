@@ -57,9 +57,8 @@ func _set_cell_transform(cell_data: MapperCellData, new_transform: Transform2D) 
 
 func _draw_quadrant_cell(cell_data: MapperCellData, quadrant: Quadrant) -> void:
 	var size_rect: Rect2i = _get_texture_region_from_cell_data(cell_data)
-	var texture_rect: Rect2i = size_rect
+	var texture_rect: Rect2i = Rect2i(size_rect.position + cell_data.tile_data.texture_origin, size_rect.size)
 
-	texture_rect.position += cell_data.tile_data.texture_origin
 	RenderingServer.canvas_item_add_set_transform(quadrant.canvas_item, cell_data.transform)
 	RenderingServer.canvas_item_add_texture_rect_region(quadrant.canvas_item,
 		texture_rect,
@@ -80,7 +79,7 @@ func _draw_quadrant(quadrant: Quadrant) -> void:
 
 func _draw_tile(cell_data: MapperCellData) -> void:
 	var size_rect: Rect2i = _get_texture_region_from_cell_data(cell_data)
-	var texture_rect: Rect2i = size_rect
+	var texture_rect: Rect2i = Rect2i(size_rect.position + cell_data.tile_data.texture_origin, size_rect.size)
 
 	texture_rect.position += cell_data.tile_data.texture_origin
 	RenderingServer.canvas_item_clear(cell_data.canvas_rid)
