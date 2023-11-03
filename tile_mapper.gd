@@ -14,7 +14,7 @@ enum CellDrawState {
 @export var quadrant_size: int = 64:
 	set = set_quadrant_size,
 	get = get_quadrant_size
-@export_enum("Static", "Kinematic") var collision_type: int = PhysicsServer2D.BODY_MODE_STATIC:
+@export var collision_type: PhysicsServer2D.BodyMode = PhysicsServer2D.BODY_MODE_STATIC:
 	set = set_collision_type,
 	get = get_collision_type
 @export_enum("Default", "Force Show", "Force Hide") var collision_visibility: int = 0:
@@ -378,7 +378,7 @@ func set_collision_type(type: PhysicsServer2D.BodyMode) -> void:
 	collision_type = type
 
 
-func get_collision_type() -> int:
+func get_collision_type() -> PhysicsServer2D.BodyMode:
 	return collision_type
 
 
