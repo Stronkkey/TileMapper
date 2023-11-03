@@ -142,8 +142,8 @@ func _create_new_quadrant() -> Quadrant:
 	return new_quadrant
 
 
-func _for_cell_body_polygon_point(cell_data: MapperCellData, layer: int, polgyon_index: int) -> RID:
-	var points: PackedVector2Array = cell_data.tile_data.get_collision_polygon_points(layer, polgyon_index)
+func _for_cell_body_polygon_point(cell_data: MapperCellData, layer: int, polygon_index: int) -> RID:
+	var points: PackedVector2Array = cell_data.tile_data.get_collision_polygon_points(layer, polygon_index)
 	return _create_shape_with_points(points) if points.size() > 3 else EMPTY_RID
 
 
