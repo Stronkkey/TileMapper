@@ -8,6 +8,12 @@ enum CellDrawState {
 	NONE
 }
 
+const NO_TILESET_ERROR: String = "Tried adding cell with no TileSet."
+const NO_SOURCE_WITH_ID: String = "Source with id {0} does not exist."
+const ONLY_TILE_SET_ATLAS_SOURCE: String = "Tile source with id {0} is not a TileSetAtlasSource. Only TileSetAtlasSource are currently supported"
+const NO_TILE_AT: String = "No tile at {0}."
+const NO_ALTERNATIVE_TILE: String = "No alternative tile with id {0} at {1}"
+
 @export var tile_set: TileSet:
 	set = set_tileset,
 	get = get_tileset
@@ -22,8 +28,7 @@ enum CellDrawState {
 	get = get_collision_visibility
 
 var _tiles: Array[MapperCellData] = []
-var _quadrants: Array[Quadrant]
-var _current_quadrant: Quadrant
+var _quadrants: Dictionary
 
 
 func _set_cell_to_use_canvas_item(cell_data: MapperCellData) -> void:
@@ -70,9 +75,13 @@ func _draw_quadrant_cell(cell_data: MapperCellData, quadrant: Quadrant) -> void:
 
 func _draw_quadrant(quadrant: Quadrant) -> void:
 	RenderingServer.canvas_item_clear(quadrant.canvas_item)
+	RenderingServer.canvas_item_set_z_index(quadrant.canvas_item, quadrant.tile_data.z_index)
+	RenderingServer.canvas_item_set_material(quadrant.canvas_item, quadrant.tile_data.material)
+	print(quadrant.tile_data.material)
 	for cell_data in quadrant.cells:
 		if cell_data.canvas_rid:
 			continue
+
 		_draw_quadrant_cell(cell_data, quadrant)
 		_draw_debug(cell_data)
 
@@ -136,8 +145,25 @@ func _get_texture_from_source_id(source_id: int) -> Texture:
 	return tile_set.get_source(source_id).texture
 
 
-func _get_quadrant() -> Quadrant:
-	return _current_quadrant if _current_quadrant is Quadrant else _create_new_quadrant()
+func _get_quadrant_with_vector4i(vector: Vector4i) -> Quadrant:
+	var cell_quadrants: Array = _quadrants.get(vector, [])
+
+	if cell_quadrants.size() > 0:
+		var last_quadrant: Quadrant = cell_quadrants[-1]
+		var quadrant: Quadrant = _create_new_quadrant() if last_quadrant.cells.size() >= quadrant_size else last_quadrant
+
+		if not last_quadrant.cells.size() >= quadrant_size:
+			quadrant.tile_info = vector
+			quadrant.tile_data = tile_set.get_source(vector.z).get_tile_data(Vector2i(vector.x, vector.y), vector.w)
+			RenderingServer.canvas_item_set_z_index(quadrant.canvas_item, quadrant.tile_data.z_index)
+			RenderingServer.canvas_item_set_material(quadrant.canvas_item, quadrant.tile_data.material)
+
+		cell_quadrants.append(quadrant)
+		return quadrant
+
+	var new_quadrant: Quadrant = _create_new_quadrant()
+	_quadrants[vector] = [new_quadrant]
+	return new_quadrant
 
 
 func _get_draw_rid_from_cell(cell_data: MapperCellData) -> RID:
@@ -180,7 +206,6 @@ func _create_new_quadrant() -> Quadrant:
 	if material:
 		RenderingServer.canvas_item_set_material(new_quadrant.canvas_item, material.get_rid())
 
-	_quadrants.append(new_quadrant)
 	return new_quadrant
 
 
@@ -276,15 +301,15 @@ func update_cell_with_tile_data(cell_data: MapperCellData, tile_data: TileData) 
 
 
 func add_cell(coords: Vector2, source_id: int, atlas_coords: Vector2 = Vector2.ZERO, alternative_tile: int = 0) -> MapperCellData:
-	assert(tile_set, "Tried adding cell with no TileSet.")
-	assert(tile_set.has_source(source_id), "Source with id {0} does not exist.")
+	assert(tile_set, NO_TILESET_ERROR)
+	assert(tile_set.has_source(source_id), NO_SOURCE_WITH_ID.format([source_id]))
+	assert(tile_set.get_source(source_id) is TileSetAtlasSource, ONLY_TILE_SET_ATLAS_SOURCE.format([source_id]))
 
 	var cell_data: MapperCellData = MapperCellData.new()
-	var source: TileSetSource = tile_set.get_source(source_id)
+	var source: TileSetAtlasSource = tile_set.get_source(source_id)
 
-	assert(source is TileSetAtlasSource, "Tile source with id {0} is not a TileSetAtlasSource. Only TileSetAtlasSource are currently supported".format([source_id]))
-	assert(source.has_tile(atlas_coords), "No tile at {0}.".format([atlas_coords]))
-	assert(source.has_alternative_tile(atlas_coords, alternative_tile), "No alternative tile with id {0} at {1}".format([alternative_tile, atlas_coords]))
+	assert(source.has_tile(atlas_coords), NO_TILE_AT.format([atlas_coords]))
+	assert(source.has_alternative_tile(atlas_coords, alternative_tile), NO_ALTERNATIVE_TILE.format([alternative_tile, atlas_coords]))
 
 	cell_data.texture = _get_texture_from_source_id(source_id)
 	cell_data.atlas_coords = atlas_coords
@@ -293,10 +318,7 @@ func add_cell(coords: Vector2, source_id: int, atlas_coords: Vector2 = Vector2.Z
 	cell_data.physics_bodies_rid = _create_physics_bodies_for_cell(cell_data)
 	cell_data.source_id = source_id
 
-	var quadrant: Quadrant = _get_quadrant()
-
-	if quadrant.cells.size() >= quadrant_size:
-		_current_quadrant = _create_new_quadrant()
+	var quadrant: Quadrant = _get_quadrant_with_vector4i(Vector4i(atlas_coords.x, atlas_coords.y, source_id, alternative_tile))
 
 	quadrant.cells.append(cell_data)
 	_tiles.append(cell_data)
@@ -311,11 +333,6 @@ func add_cell(coords: Vector2, source_id: int, atlas_coords: Vector2 = Vector2.Z
 func use_canvas_item_for_cell(cell_data: MapperCellData) -> void:
 	if _get_cell_draw_state(cell_data) != CellDrawState.QUADRANT:
 		_set_cell_to_use_canvas_item(cell_data)
-
-
-func use_quadrant_for_cell(cell_data: MapperCellData) -> void:
-	if _get_cell_draw_state(cell_data) != CellDrawState.CANVAS_ITEM:
-		_set_cell_to_use_quadrant(cell_data, _get_quadrant())
 
 
 func set_quadrant_for_cell(cell_data: MapperCellData, quadrant: Quadrant) -> void:
@@ -340,7 +357,6 @@ func destroy_cell(cell_data: MapperCellData) -> void:
 
 	if cell_data.current_quadrant:
 		cell_data.current_quadrant.cells.erase(cell_data)
-		_current_quadrant = cell_data.current_quadrant
 		_draw_quadrant(cell_data.current_quadrant)
 
 	for body in cell_data.physics_bodies_rid:
@@ -408,3 +424,5 @@ class MapperCellData:
 class Quadrant:
 	var cells: Array[MapperCellData]
 	var canvas_item: RID
+	var tile_info: Vector4i
+	var tile_data: TileData
