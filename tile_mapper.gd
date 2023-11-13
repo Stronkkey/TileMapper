@@ -13,6 +13,7 @@ const NO_SOURCE_WITH_ID: String = "Source with id {0} does not exist."
 const ONLY_TILE_SET_ATLAS_SOURCE: String = "Tile source with id {0} is not a TileSetAtlasSource. Only TileSetAtlasSource are currently supported"
 const NO_TILE_AT: String = "No tile at {0}."
 const NO_ALTERNATIVE_TILE: String = "No alternative tile with id {0} at {1}"
+const TILE_SOURCE_NO_TEXTURE: String = "Tile source doesn't have a texture."
 
 @export var tile_set: TileSet:
 	set = set_tileset,
@@ -28,7 +29,7 @@ const NO_ALTERNATIVE_TILE: String = "No alternative tile with id {0} at {1}"
 	get = get_collision_visibility
 
 var _tiles: Array[MapperCellData] = []
-var _animated: Array[MapperCellData] = []
+var _animated_tiles: Array[MapperCellData] = []
 var _quadrants: Dictionary
 
 
@@ -63,7 +64,7 @@ func _set_cell_transform(cell_data: MapperCellData, new_transform: Transform2D) 
 
 func _draw_quadrant_cell(cell_data: MapperCellData, quadrant: Quadrant) -> void:
 	var size_rect: Rect2i = _get_texture_region_from_cell_data(cell_data)
-	var texture_rect: Rect2i = Rect2i(size_rect.position + cell_data.tile_data.texture_origin, size_rect.size)
+	var texture_rect: Rect2i = Rect2i((size_rect.position + cell_data.tile_data.texture_origin) - size_rect.size / 2, size_rect.size)
 
 	RenderingServer.canvas_item_add_set_transform(quadrant.canvas_item, cell_data.transform)
 	RenderingServer.canvas_item_add_texture_rect_region(quadrant.canvas_item,
@@ -105,9 +106,10 @@ func _draw_tile(cell_data: MapperCellData) -> void:
 
 
 func _draw_debug_cell_for_shape(cell_data: MapperCellData, body: RID, shape_index: int, debug_color: Color) -> void:
+	var cell_size: Rect2i = _get_texture_region_from_cell_data(cell_data)
 	var shape: RID = PhysicsServer2D.body_get_shape(body, shape_index)
 	var shape_type: PhysicsServer2D.ShapeType = PhysicsServer2D.shape_get_type(shape)
-	var shape_transform: Transform2D = PhysicsServer2D.body_get_shape_transform(body, shape_index)
+	var shape_transform: Transform2D = PhysicsServer2D.body_get_shape_transform(body, shape_index).translated_local((cell_size.size * -1) / 2)
 
 	assert(shape_type == PhysicsServer2D.SHAPE_CONVEX_POLYGON, "Wrong shape type for a tile, should be SHAPE_CONVEX_POLYGON.")
 
@@ -122,7 +124,7 @@ func _draw_debug_cell(cell_data: MapperCellData, debug_color: Color) -> void:
 
 func _draw_debug(cell_data: MapperCellData) -> void:
 	if _should_draw_debug_shapes():
-		_draw_debug_cell(cell_data, ProjectSettings.get("debug/shapes/collision/shape_color"))
+		_draw_debug_cell(cell_data, ProjectSettings.get(&"debug/shapes/collision/shape_color"))
 
 
 func _draw_cell_shape(draw_rid: RID, shape: RID, color: Color, body_transform: Transform2D) -> void:
@@ -142,8 +144,9 @@ func _get_texture_region_from_atlas_source(source_id: int, atlas_coords: Vector2
 	return Rect2i()
 
 
-func _get_texture_from_source_id(source_id: int) -> Texture:
-	return tile_set.get_source(source_id).texture
+func _get_texture_from_source_id(source_id: int) -> Texture2D:
+	var source: TileSetSource = tile_set.get_source(source_id)
+	return source.texture if source is TileSetAtlasSource else null
 
 
 func _get_quadrant_with_vector4i(vector: Vector4i) -> Quadrant:
@@ -320,14 +323,16 @@ func update_cell_with_tile_data(cell_data: MapperCellData, tile_data: TileData) 
 
 
 func add_cell(coords: Vector2, source_id: int, atlas_coords: Vector2 = Vector2.ZERO, alternative_tile: int = 0) -> MapperCellData:
-	var source: TileSetSource
+	var source: TileSetAtlasSource = tile_set.get_source(source_id) as TileSetAtlasSource
 	var cell_data: MapperCellData = MapperCellData.new()
+
 	assert(tile_set, NO_TILESET_ERROR)
 	assert(tile_set.has_source(source_id), NO_SOURCE_WITH_ID.format([source_id]))
-	source = tile_set.get_source(source_id)
-	assert(tile_set.get_source(source_id) is TileSetAtlasSource, ONLY_TILE_SET_ATLAS_SOURCE.format([source_id]))
+	assert(source, ONLY_TILE_SET_ATLAS_SOURCE.format([source_id]))
+	assert(source.texture, TILE_SOURCE_NO_TEXTURE)
 	assert(source.has_tile(atlas_coords), NO_TILE_AT.format([atlas_coords]))
 	assert(source.has_alternative_tile(atlas_coords, alternative_tile), NO_ALTERNATIVE_TILE.format([alternative_tile, atlas_coords]))
+
 	_create_cell(cell_data, coords, atlas_coords, source_id, alternative_tile, source)
 	return cell_data
 
@@ -421,6 +426,7 @@ class MapperCellData:
 	var texture: Texture
 	var tile_data: TileData
 	var source_id: int = 0
+	var _valid: bool = true
 
 
 class Quadrant:
