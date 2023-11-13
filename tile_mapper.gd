@@ -79,7 +79,7 @@ func _draw_quadrant(quadrant: Quadrant) -> void:
 	RenderingServer.canvas_item_clear(quadrant.canvas_item)
 	RenderingServer.canvas_item_set_z_index(quadrant.canvas_item, quadrant.tile_data.z_index)
 	RenderingServer.canvas_item_set_material(quadrant.canvas_item, quadrant.tile_data.material)
-	print(quadrant.tile_data.material)
+
 	for cell_data in quadrant.cells:
 		if cell_data.canvas_rid:
 			continue
@@ -123,8 +123,9 @@ func _draw_debug_cell(cell_data: MapperCellData, debug_color: Color) -> void:
 
 
 func _draw_debug(cell_data: MapperCellData) -> void:
-	if _should_draw_debug_shapes():
-		_draw_debug_cell(cell_data, ProjectSettings.get(&"debug/shapes/collision/shape_color"))
+	var shape_color: Color = ProjectSettings.get(&"debug/shapes/collision/shape_color")
+	if _should_draw_debug_shapes() and shape_color:
+		_draw_debug_cell(cell_data, shape_color)
 
 
 func _draw_cell_shape(draw_rid: RID, shape: RID, color: Color, body_transform: Transform2D) -> void:
@@ -137,16 +138,16 @@ func _get_texture_region_from_cell_data(cell_data: MapperCellData) -> Rect2i:
 
 
 func _get_texture_region_from_atlas_source(source_id: int, atlas_coords: Vector2i) -> Rect2i:
-	var source: TileSetSource = tile_set.get_source(source_id)
-	if source is TileSetAtlasSource:
+	var source: TileSetSource = tile_set.get_source(source_id) as TileSetAtlasSource
+	if source:
 		return source.get_tile_texture_region(atlas_coords)
 
 	return Rect2i()
 
 
 func _get_texture_from_source_id(source_id: int) -> Texture2D:
-	var source: TileSetSource = tile_set.get_source(source_id)
-	return source.texture if source is TileSetAtlasSource else null
+	var source: TileSetSource = tile_set.get_source(source_id) as TileSetAtlasSource
+	return source.texture if source else null
 
 
 func _get_quadrant_with_vector4i(vector: Vector4i) -> Quadrant:
@@ -155,10 +156,11 @@ func _get_quadrant_with_vector4i(vector: Vector4i) -> Quadrant:
 	if cell_quadrants.size() > 0:
 		var last_quadrant: Quadrant = cell_quadrants[-1]
 		var quadrant: Quadrant = _create_new_quadrant() if last_quadrant.cells.size() >= quadrant_size else last_quadrant
+		var source: TileSetSource = tile_set.get_source(vector.z) as TileSetAtlasSource
 
-		if not last_quadrant.cells.size() >= quadrant_size:
+		if not last_quadrant.cells.size() >= quadrant_size and source:
 			quadrant.tile_info = vector
-			quadrant.tile_data = tile_set.get_source(vector.z).get_tile_data(Vector2i(vector.x, vector.y), vector.w)
+			quadrant.tile_data = source.get_tile_data(Vector2i(vector.x, vector.y), vector.w)
 			RenderingServer.canvas_item_set_z_index(quadrant.canvas_item, quadrant.tile_data.z_index)
 			RenderingServer.canvas_item_set_material(quadrant.canvas_item, quadrant.tile_data.material)
 
