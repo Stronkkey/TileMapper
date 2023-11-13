@@ -28,6 +28,7 @@ const NO_ALTERNATIVE_TILE: String = "No alternative tile with id {0} at {1}"
 	get = get_collision_visibility
 
 var _tiles: Array[MapperCellData] = []
+var _animated: Array[MapperCellData] = []
 var _quadrants: Dictionary
 
 
@@ -209,6 +210,24 @@ func _create_new_quadrant() -> Quadrant:
 	return new_quadrant
 
 
+func _create_cell(cell_data: MapperCellData, coords: Vector2, atlas_coords: Vector2i, source_id: int, alternative_tile: int, source: TileSetAtlasSource) -> void:
+	cell_data.texture = _get_texture_from_source_id(source_id)
+	cell_data.atlas_coords = atlas_coords
+	cell_data.transform = Transform2D(0, coords)
+	cell_data.tile_data = source.get_tile_data(atlas_coords, alternative_tile)
+	cell_data.physics_bodies_rid = _create_physics_bodies_for_cell(cell_data)
+	cell_data.source_id = source_id
+
+	var quadrant: Quadrant = _get_quadrant_with_vector4i(Vector4i(atlas_coords.x, atlas_coords.y, source_id, alternative_tile))
+
+	quadrant.cells.append(cell_data)
+	_tiles.append(cell_data)
+
+	cell_data.current_quadrant = quadrant
+	_draw_quadrant_cell(cell_data, quadrant)
+	_draw_debug(cell_data)
+
+
 func _for_cell_body_polygon_point(cell_data: MapperCellData, layer: int, polygon_index: int) -> RID:
 	var points: PackedVector2Array = cell_data.tile_data.get_collision_polygon_points(layer, polygon_index)
 	return _create_shape_with_points(points) if points.size() > 3 else RID()
@@ -301,32 +320,15 @@ func update_cell_with_tile_data(cell_data: MapperCellData, tile_data: TileData) 
 
 
 func add_cell(coords: Vector2, source_id: int, atlas_coords: Vector2 = Vector2.ZERO, alternative_tile: int = 0) -> MapperCellData:
+	var source: TileSetSource
+	var cell_data: MapperCellData = MapperCellData.new()
 	assert(tile_set, NO_TILESET_ERROR)
 	assert(tile_set.has_source(source_id), NO_SOURCE_WITH_ID.format([source_id]))
+	source = tile_set.get_source(source_id)
 	assert(tile_set.get_source(source_id) is TileSetAtlasSource, ONLY_TILE_SET_ATLAS_SOURCE.format([source_id]))
-
-	var cell_data: MapperCellData = MapperCellData.new()
-	var source: TileSetAtlasSource = tile_set.get_source(source_id)
-
 	assert(source.has_tile(atlas_coords), NO_TILE_AT.format([atlas_coords]))
 	assert(source.has_alternative_tile(atlas_coords, alternative_tile), NO_ALTERNATIVE_TILE.format([alternative_tile, atlas_coords]))
-
-	cell_data.texture = _get_texture_from_source_id(source_id)
-	cell_data.atlas_coords = atlas_coords
-	cell_data.transform = Transform2D(0, coords)
-	cell_data.tile_data = source.get_tile_data(atlas_coords, alternative_tile)
-	cell_data.physics_bodies_rid = _create_physics_bodies_for_cell(cell_data)
-	cell_data.source_id = source_id
-
-	var quadrant: Quadrant = _get_quadrant_with_vector4i(Vector4i(atlas_coords.x, atlas_coords.y, source_id, alternative_tile))
-
-	quadrant.cells.append(cell_data)
-	_tiles.append(cell_data)
-
-	cell_data.current_quadrant = quadrant
-	_draw_quadrant_cell(cell_data, quadrant)
-	_draw_debug(cell_data)
-
+	_create_cell(cell_data, coords, atlas_coords, source_id, alternative_tile, source)
 	return cell_data
 
 
